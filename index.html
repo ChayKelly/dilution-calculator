@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dilution Calculator</title>
+<meta name="theme-color" content="#111418">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #111418; --card: #1b2027; --line: #2c333d; --text: #e9edf2;
+    --muted: #8b95a3; --accent: #4fb3ff; --product: #ffb347; --water: #4fb3ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, Roboto, sans-serif; }
+  main { max-width: 520px; margin: 0 auto; padding: 16px 16px 48px; }
+  h1 { font-size: 20px; margin: 4px 0 16px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px; margin-bottom: 14px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+  input, select { width: 100%; font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  input:focus, select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  .row { display: flex; gap: 10px; align-items: flex-end; }
+  .row > * { flex: 1; }
+  .ratio { display: flex; align-items: center; gap: 8px; }
+  .ratio span { font-size: 22px; color: var(--muted); }
+  .ratio .one { flex: 0 0 56px; text-align: center; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip { background: var(--bg); border: 1px solid var(--line); color: var(--text);
+    border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 14px; }
+  .chip.on { border-color: var(--accent); color: var(--accent); }
+  button { font: inherit; cursor: pointer; }
+  .unit { flex: 0 0 84px; }
+  .result { text-align: center; }
+  .big { font-size: 44px; font-weight: 700; color: var(--product); line-height: 1.1; }
+  .sub { color: var(--muted); font-size: 14px; }
+  .water { font-size: 22px; font-weight: 600; color: var(--water); margin-top: 8px; }
+  .bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin: 14px 0 6px;
+    background: var(--water); }
+  .bar i { display: block; background: var(--product); }
+  .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .presets { list-style: none; margin: 0; padding: 0; }
+  .preset { display: flex; align-items: center; gap: 10px; padding: 10px 0;
+    border-top: 1px solid var(--line); }
+  .preset:first-child { border-top: 0; }
+  .preset .name { flex: 1; min-width: 0; }
+  .preset .name b { display: block; font-weight: 600; }
+  .preset .name small { color: var(--muted); }
+  .preset .use { background: var(--accent); color: #04121f; border: 0; border-radius: 9px;
+    padding: 8px 12px; font-weight: 600; }
+  .preset .del { background: none; border: 0; color: var(--muted); font-size: 20px; padding: 4px 8px; }
+  .btn { width: 100%; background: var(--accent); color: #04121f; border: 0; border-radius: 10px;
+    padding: 12px; font-weight: 600; margin-top: 10px; }
+  .btn.ghost { background: none; color: var(--accent); border: 1px solid var(--line); }
+  .group { font-size: 13px; color: var(--muted); padding: 12px 0 2px; font-weight: 600; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Dilution Calculator</h1>
+
+  <section class="card">
+    <h2>Make up</h2>
+    <div class="row">
+      <div>
+        <label for="total">Total amount</label>
+        <input id="total" type="number" inputmode="decimal" min="0" step="any" value="1">
+      </div>
+      <div class="unit">
+        <label for="unit">Unit</label>
+        <select id="unit"><option value="1000">L</option><option value="1">ml</option></select>
+      </div>
+    </div>
+    <div class="chips" id="sizes"></div>
+
+    <label for="ratio" style="margin-top:14px">Ratio (product : water)</label>
+    <div class="ratio">
+      <input class="one" value="1" disabled aria-label="Product parts">
+      <span>:</span>
+      <input id="ratio" type="number" inputmode="decimal" min="0" step="any" value="10" aria-label="Water parts">
+    </div>
+    <div class="chips" id="ratios"></div>
+  </section>
+
+  <section class="card result" aria-live="polite">
+    <div class="sub" id="label">&nbsp;</div>
+    <div class="big" id="product">0 ml</div>
+    <div class="sub">of product</div>
+    <div class="water" id="water">+ 0 ml water</div>
+    <div class="bar"><i id="barP"></i></div>
+    <div class="sub" id="pct"></div>
+  </section>
+
+  <section class="card">
+    <h2>My presets</h2>
+    <ul class="presets" id="presetList"></ul>
+    <button class="btn ghost" id="showAdd">Add preset</button>
+    <button class="btn ghost" id="reset">Reset to default presets</button>
+    <form id="addForm" class="hidden" autocomplete="off">
+      <label for="pName" style="margin-top:12px">Product</label>
+      <input id="pName" list="productNames" placeholder="e.g. Koch Chemie Green Star" required>
+      <datalist id="productNames"></datalist>
+      <label for="pUse" style="margin-top:10px">Use (optional)</label>
+      <input id="pUse" placeholder="e.g. Wheel arches">
+      <label for="pRatio" style="margin-top:10px">Ratio 1 :</label>
+      <input id="pRatio" type="number" inputmode="decimal" min="0" step="any" required>
+      <button class="btn" type="submit">Save preset</button>
+      <button class="btn ghost" type="button" id="saveCurrent">Use the ratio above</button>
+    </form>
+    <p class="note">Ratios are 1 part product to X parts water, so 1:10 in 1 litre is 91 ml product and 909 ml water. Check the bottle label: some brands write the ratio the same way, a few mean 1 part in X total.</p>
+  </section>
+</main>
+
+<script>
+const KEY = 'dilution-presets-v1';
+const DEFAULTS = [
+  { name: "Meguiar's D110 Hyper Wash", use: 'Bucket wash', ratio: 400 },
+  { name: 'Koch-Chemie Active Foam', use: 'Foam lance, routine pre-wash', ratio: 10 },
+  { name: 'Koch-Chemie Green Star', use: 'Engine bay, heavy grease', ratio: 5 },
+  { name: 'Koch-Chemie Green Star', use: 'Wheels, arches, sills, bugs', ratio: 10 },
+  { name: 'Koch-Chemie Green Star', use: 'Interior plastics and trim', ratio: 20 },
+  { name: 'Koch-Chemie Pol Star', use: 'Upholstery, heavy soiling', ratio: 5 },
+  { name: 'Koch-Chemie Pol Star', use: 'Upholstery, light soiling', ratio: 20 },
+  { name: 'Koch-Chemie Protector Wax', use: 'Sprayer, about 30 ml per litre', ratio: 33 },
+  { name: 'CarPro Lift', use: 'Foam lance, strip wash', ratio: 10 },
+  { name: 'CarPro Descale', use: 'Foam sprayer, strips protection', ratio: 10 },
+  { name: 'CarPro Descale', use: 'Bucket wash', ratio: 100 },
+  { name: 'CarPro Claylube', use: 'Clay lube, generous', ratio: 10 },
+  { name: 'CarPro Claylube', use: 'Clay lube, lighter', ratio: 20 },
+];
+const SIZES = [[500, '500 ml'], [750, '750 ml'], [1000, '1 L'], [5000, '5 L']];
+const RATIOS = [4, 5, 10, 20, 50, 100];
+
+const $ = id => document.getElementById(id);
+let presets = load();
+let activeLabel = '';
+
+function load() {
+  try { const p = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(p)) return p; } catch {}
+  return DEFAULTS.slice();
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(presets)); }
+
+function fmt(ml) {
+  if (ml >= 1000) return (Math.round(ml / 10) / 100) + ' L';
+  if (ml >= 100) return Math.round(ml) + ' ml';
+  if (ml >= 10) return (Math.round(ml * 10) / 10) + ' ml';
+  return (Math.round(ml * 100) / 100) + ' ml';
+}
+
+function calc() {
+  const totalMl = (parseFloat($('total').value) || 0) * parseFloat($('unit').value);
+  const x = parseFloat($('ratio').value);
+  const parts = 1 + (x >= 0 ? x : 0);
+  const product = totalMl / parts;
+  const water = totalMl - product;
+  $('product').textContent = fmt(product);
+  $('water').textContent = '+ ' + fmt(water) + ' water';
+  const pct = totalMl ? product / totalMl * 100 : 0;
+  $('barP').style.width = Math.max(pct, totalMl ? 1 : 0) + '%';
+  $('pct').textContent = totalMl ? (Math.round(pct * 100) / 100) + '% product, ' + fmt(totalMl) + ' total' : '';
+  $('label').textContent = activeLabel || ' ';
+  document.querySelectorAll('#sizes .chip').forEach(c => c.classList.toggle('on', +c.dataset.ml === totalMl));
+  document.querySelectorAll('#ratios .chip').forEach(c => c.classList.toggle('on', +c.dataset.r === x));
+  localStorage.setItem('dilution-last', JSON.stringify({ t: $('total').value, u: $('unit').value, r: $('ratio').value, l: activeLabel }));
+}
+
+function chips(el, items, onClick) {
+  el.innerHTML = '';
+  items.forEach(([val, text, attr]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = text; b.dataset[attr] = val;
+    b.onclick = () => onClick(val);
+    el.appendChild(b);
+  });
+}
+
+function renderPresets() {
+  const list = $('presetList');
+  list.innerHTML = '';
+  const groups = {};
+  presets.forEach((p, i) => (groups[p.name] = groups[p.name] || []).push([p, i]));
+  Object.keys(groups).sort().forEach(name => {
+    const g = document.createElement('li'); g.className = 'group'; g.textContent = name; list.appendChild(g);
+    groups[name].sort((a, b) => a[0].ratio - b[0].ratio).forEach(([p, i]) => {
+      const li = document.createElement('li'); li.className = 'preset';
+      li.innerHTML = '<div class="name"><b></b><small></small></div>' +
+        '<button class="use" type="button">Use</button><button class="del" type="button" aria-label="Delete">&times;</button>';
+      li.querySelector('b').textContent = '1:' + p.ratio;
+      li.querySelector('small').textContent = p.use || '';
+      li.querySelector('.use').onclick = () => {
+        $('ratio').value = p.ratio;
+        activeLabel = p.name + (p.use ? ', ' + p.use : '');
+        calc(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+      li.querySelector('.del').onclick = () => {
+        if (confirm('Delete ' + p.name + ' 1:' + p.ratio + '?')) { presets.splice(i, 1); save(); renderPresets(); }
+      };
+      list.appendChild(li);
+    });
+  });
+  if (!presets.length) list.innerHTML = '<li class="note">No presets yet.</li>';
+  $('productNames').replaceChildren(...[...new Set(presets.map(p => p.name))].map(n => new Option('', n)));
+}
+
+chips($('sizes'), SIZES.map(([ml, t]) => [ml, t, 'ml']), ml => {
+  if (ml >= 1000) { $('unit').value = '1000'; $('total').value = ml / 1000; }
+  else { $('unit').value = '1'; $('total').value = ml; }
+  calc();
+});
+chips($('ratios'), RATIOS.map(r => [r, '1:' + r, 'r']), r => { $('ratio').value = r; activeLabel = ''; calc(); });
+
+$('total').oninput = $('unit').onchange = calc;
+$('ratio').oninput = () => { activeLabel = ''; calc(); };
+
+$('showAdd').onclick = () => { $('addForm').classList.toggle('hidden'); $('pName').focus(); };
+$('reset').onclick = () => {
+  if (confirm('Replace your presets with the defaults? Any you added will be lost.')) { presets = DEFAULTS.slice(); save(); renderPresets(); }
+};
+$('saveCurrent').onclick = () => { $('pRatio').value = $('ratio').value; };
+$('addForm').onsubmit = e => {
+  e.preventDefault();
+  const ratio = parseFloat($('pRatio').value);
+  if (!(ratio >= 0)) return;
+  presets.push({ name: $('pName').value.trim(), use: $('pUse').value.trim(), ratio });
+  save(); renderPresets();
+  $('addForm').reset(); $('addForm').classList.add('hidden');
+};
+
+try {
+  const last = JSON.parse(localStorage.getItem('dilution-last'));
+  if (last) { $('total').value = last.t; $('unit').value = last.u; $('ratio').value = last.r; activeLabel = last.l || ''; }
+} catch {}
+renderPresets();
+calc();
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
